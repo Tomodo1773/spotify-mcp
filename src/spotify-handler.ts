@@ -4,8 +4,17 @@ import type { Env, OAuthReqInfo, SpotifyTokens } from "./types";
 const SPOTIFY_AUTHORIZE_URL = "https://accounts.spotify.com/authorize";
 const SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token";
 const SPOTIFY_USERINFO_URL = "https://api.spotify.com/v1/me";
-const SCOPES =
-  "user-read-playback-state user-modify-playback-state user-read-currently-playing";
+const SCOPES = [
+  "user-read-playback-state",
+  "user-modify-playback-state",
+  "user-read-currently-playing",
+  "playlist-read-private",
+  "playlist-read-collaborative",
+  "playlist-modify-private",
+  "playlist-modify-public",
+  "user-library-modify",
+  "user-library-read",
+].join(" ");
 
 type HonoEnv = { Bindings: Env };
 
