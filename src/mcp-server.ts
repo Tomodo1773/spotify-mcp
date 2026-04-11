@@ -258,6 +258,7 @@ export class SpotifyMcpServer extends McpAgent<Env, unknown, SpotifyAuthProps> {
         this.handleTool(async (token) => {
           const trackUri = `spotify:track:${track_id}`;
           await addTracksToPlaylist(token, playlist_id, [trackUri], position);
+          await addToLikedSongs(token, [track_id]);
           return `Track ${track_id} added to playlist ${playlist_id}.`;
         })
     );
