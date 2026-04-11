@@ -152,15 +152,6 @@ export function formatSearchResults(
     }
   }
 
-  if (type === "playlist" && data.playlists) {
-    for (const p of data.playlists.items) {
-      const owner = p.owner?.display_name ?? "Unknown";
-      lines.push(
-        `${p.name} by ${owner} (${p.tracks.total} tracks) [spotify:playlist:${p.id}]`
-      );
-    }
-  }
-
   return lines.length > 0 ? lines.join("\n") : "No results found.";
 }
 
@@ -378,6 +369,18 @@ export async function createPlaylist(
     }),
   });
   return res.json();
+}
+
+export async function getPlaylistOwnerId(
+  token: string,
+  playlistId: string
+): Promise<string> {
+  const res = await spotifyFetch(token, `/playlists/${playlistId}?fields=owner(id)`);
+  const data = (await res.json()) as { owner?: { id?: string } };
+  if (!data.owner?.id) {
+    throw new Error("Could not determine playlist owner.");
+  }
+  return data.owner.id;
 }
 
 export async function addTracksToPlaylist(

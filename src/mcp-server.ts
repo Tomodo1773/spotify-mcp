@@ -19,6 +19,7 @@ import {
   formatItemInfo,
   createPlaylist,
   addTracksToPlaylist,
+  getPlaylistOwnerId,
   addToLikedSongs,
   searchMyPlaylists,
   formatPlaylistList,
@@ -75,11 +76,11 @@ export class SpotifyMcpServer extends McpAgent<Env, unknown, SpotifyAuthProps> {
     // ----- spotify_search -----
     this.server.tool(
       "spotify_search",
-      "Search Spotify for tracks, albums, artists, or playlists",
+      "Search Spotify for tracks, albums, or artists. To search your own playlists, use spotify_search_my_playlists.",
       {
         query: z.string().describe("Search query"),
         type: z
-          .enum(["track", "album", "artist", "playlist"])
+          .enum(["track", "album", "artist"])
           .default("track")
           .describe("Type of content to search for"),
         limit: z
@@ -202,6 +203,11 @@ export class SpotifyMcpServer extends McpAgent<Env, unknown, SpotifyAuthProps> {
               return formatItemInfo("artist", data);
             }
             case "playlist": {
+              const userId = this.props!.userId;
+              const ownerId = await getPlaylistOwnerId(token, id);
+              if (ownerId !== userId) {
+                return `Error: Playlist ${id} does not belong to you. You can only view info for your own playlists.`;
+              }
               const data = await getPlaylistInfo(token, id);
               return formatItemInfo("playlist", data);
             }
@@ -214,38 +220,34 @@ export class SpotifyMcpServer extends McpAgent<Env, unknown, SpotifyAuthProps> {
     // ----- spotify_create_playlist -----
     this.server.tool(
       "spotify_create_playlist",
-      "Create a new Spotify playlist",
+      "Create a new private Spotify playlist owned by the authenticated user",
       {
         name: z.string().describe("Name of the playlist"),
-        public: z
-          .boolean()
-          .default(false)
-          .describe("Whether the playlist should be public"),
         description: z
           .string()
           .optional()
           .describe("Description for the playlist"),
       },
-      async ({ name, public: isPublic, description }) =>
+      async ({ name, description }) =>
         this.handleTool(async (token) => {
           const userId = this.props!.userId;
           const playlist = await createPlaylist(
             token,
             userId,
             name,
-            isPublic,
+            false,
             description
           );
-          return `Playlist created: ${playlist.name} [spotify:playlist:${playlist.id}]`;
+          return `Playlist created (private): ${playlist.name} [spotify:playlist:${playlist.id}]`;
         })
     );
 
     // ----- spotify_add_tracks_to_playlist -----
     this.server.tool(
       "spotify_add_tracks_to_playlist",
-      "Add a track to a Spotify playlist",
+      "Add a track to one of your own Spotify playlists",
       {
-        playlist_id: z.string().describe("ID of the playlist"),
+        playlist_id: z.string().describe("ID of the playlist (must be owned by you)"),
         track_id: z.string().describe("ID of the track to add"),
         position: z
           .number()
@@ -256,6 +258,11 @@ export class SpotifyMcpServer extends McpAgent<Env, unknown, SpotifyAuthProps> {
       },
       async ({ playlist_id, track_id, position }) =>
         this.handleTool(async (token) => {
+          const userId = this.props!.userId;
+          const ownerId = await getPlaylistOwnerId(token, playlist_id);
+          if (ownerId !== userId) {
+            return `Error: Playlist ${playlist_id} does not belong to you. You can only add tracks to your own playlists.`;
+          }
           const trackUri = `spotify:track:${track_id}`;
           await addTracksToPlaylist(token, playlist_id, [trackUri], position);
           await addToLikedSongs(token, [track_id]);
