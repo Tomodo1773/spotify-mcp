@@ -10,7 +10,7 @@ const SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token";
 export class SpotifyApiError extends Error {
   constructor(
     public status: number,
-    public body: string
+    public body: string,
   ) {
     super(`Spotify API error: ${status}`);
   }
@@ -18,7 +18,9 @@ export class SpotifyApiError extends Error {
 
 function formatDuration(ms: number): string {
   const min = Math.floor(ms / 60000);
-  const sec = Math.floor((ms % 60000) / 1000).toString().padStart(2, "0");
+  const sec = Math.floor((ms % 60000) / 1000)
+    .toString()
+    .padStart(2, "0");
   return `${min}:${sec}`;
 }
 
@@ -29,7 +31,7 @@ function artistNames(artists: SpotifyArtist[]): string {
 async function spotifyFetch(
   token: string,
   path: string,
-  options?: RequestInit
+  options?: RequestInit,
 ): Promise<Response> {
   const res = await fetch(`${SPOTIFY_API_BASE}${path}`, {
     ...options,
@@ -51,7 +53,7 @@ async function spotifyFetch(
 
 export async function refreshAccessToken(
   env: Env,
-  userId: string
+  userId: string,
 ): Promise<string> {
   const stored = await env.SPOTIFY_TOKENS.get<SpotifyTokens>(userId, "json");
   if (!stored?.refresh_token) {
@@ -59,7 +61,7 @@ export async function refreshAccessToken(
   }
 
   const credentials = btoa(
-    `${env.SPOTIFY_CLIENT_ID}:${env.SPOTIFY_CLIENT_SECRET}`
+    `${env.SPOTIFY_CLIENT_ID}:${env.SPOTIFY_CLIENT_SECRET}`,
   );
   const res = await fetch(SPOTIFY_TOKEN_URL, {
     method: "POST",
@@ -94,10 +96,7 @@ export async function refreshAccessToken(
   return updated.access_token;
 }
 
-export async function getValidToken(
-  env: Env,
-  userId: string
-): Promise<string> {
+export async function getValidToken(env: Env, userId: string): Promise<string> {
   const stored = await env.SPOTIFY_TOKENS.get<SpotifyTokens>(userId, "json");
   if (!stored) {
     throw new Error("No Spotify tokens found. Re-authorization required.");
@@ -117,7 +116,7 @@ export async function search(
   token: string,
   query: string,
   type: string,
-  limit: number
+  limit: number,
 ): Promise<SpotifySearchResult> {
   const params = new URLSearchParams({ q: query, type, limit: String(limit) });
   const res = await spotifyFetch(token, `/search?${params}`);
@@ -126,14 +125,14 @@ export async function search(
 
 export function formatSearchResults(
   data: SpotifySearchResult,
-  type: string
+  type: string,
 ): string {
   const lines: string[] = [];
 
   if (type === "track" && data.tracks) {
     for (const t of data.tracks.items) {
       lines.push(
-        `${t.name} - ${artistNames(t.artists)} (${t.album.name}) [spotify:track:${t.id}]`
+        `${t.name} - ${artistNames(t.artists)} (${t.album.name}) [spotify:track:${t.id}]`,
       );
     }
   }
@@ -141,7 +140,9 @@ export function formatSearchResults(
   if (type === "album" && data.albums) {
     for (const a of data.albums.items) {
       const year = a.release_date?.substring(0, 4) ?? "Unknown";
-      lines.push(`${a.name} - ${artistNames(a.artists)} (${year}) [spotify:album:${a.id}]`);
+      lines.push(
+        `${a.name} - ${artistNames(a.artists)} (${year}) [spotify:album:${a.id}]`,
+      );
     }
   }
 
@@ -160,13 +161,12 @@ export function formatSearchResults(
 // ---------------------------------------------------------------------------
 
 export async function getCurrentTrack(
-  token: string
+  token: string,
 ): Promise<SpotifyCurrentTrack | null> {
   // 204/202 = no active playback; spotifyFetch would throw on these, so use raw fetch
-  const res = await fetch(
-    `${SPOTIFY_API_BASE}/me/player/currently-playing`,
-    { headers: { Authorization: `Bearer ${token}` } }
-  );
+  const res = await fetch(`${SPOTIFY_API_BASE}/me/player/currently-playing`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
   if (res.status === 204 || res.status === 202) return null;
   if (!res.ok) {
     const errorBody = await res.text();
@@ -177,7 +177,7 @@ export async function getCurrentTrack(
 
 export async function startPlayback(
   token: string,
-  spotifyUri?: string
+  spotifyUri?: string,
 ): Promise<void> {
   const body: Record<string, unknown> = {};
   if (spotifyUri) {
@@ -200,7 +200,7 @@ export async function pausePlayback(token: string): Promise<void> {
 
 export async function skipTrack(
   token: string,
-  numSkips: number = 1
+  numSkips: number = 1,
 ): Promise<void> {
   for (let i = 0; i < numSkips; i++) {
     await spotifyFetch(token, "/me/player/next", { method: "POST" });
@@ -211,10 +211,7 @@ export async function skipTrack(
 // Queue
 // ---------------------------------------------------------------------------
 
-export async function addToQueue(
-  token: string,
-  uri: string
-): Promise<void> {
+export async function addToQueue(token: string, uri: string): Promise<void> {
   const params = new URLSearchParams({ uri });
   await spotifyFetch(token, `/me/player/queue?${params}`, { method: "POST" });
 }
@@ -230,7 +227,7 @@ export async function getQueue(token: string): Promise<SpotifyQueue> {
 
 export async function getTrackInfo(
   token: string,
-  id: string
+  id: string,
 ): Promise<SpotifyTrackDetail> {
   const res = await spotifyFetch(token, `/tracks/${id}`);
   return res.json();
@@ -238,7 +235,7 @@ export async function getTrackInfo(
 
 export async function getAlbumInfo(
   token: string,
-  id: string
+  id: string,
 ): Promise<SpotifyAlbumDetail> {
   const res = await spotifyFetch(token, `/albums/${id}`);
   return res.json();
@@ -246,22 +243,24 @@ export async function getAlbumInfo(
 
 export async function getArtistInfo(
   token: string,
-  id: string
+  id: string,
 ): Promise<SpotifyArtistInfoResult> {
   const [artistRes, topTracksRes, albumsRes] = await Promise.all([
     spotifyFetch(token, `/artists/${id}`),
     spotifyFetch(token, `/artists/${id}/top-tracks`),
     spotifyFetch(token, `/artists/${id}/albums?limit=10`),
   ]);
-  const artist = await artistRes.json() as SpotifyArtistDetail;
-  const topTracks = await topTracksRes.json() as { tracks: SpotifyTrackDetail[] };
-  const albums = await albumsRes.json() as { items: SpotifyAlbumDetail[] };
+  const artist = (await artistRes.json()) as SpotifyArtistDetail;
+  const topTracks = (await topTracksRes.json()) as {
+    tracks: SpotifyTrackDetail[];
+  };
+  const albums = (await albumsRes.json()) as { items: SpotifyAlbumDetail[] };
   return { ...artist, topTracks: topTracks.tracks, albums: albums.items };
 }
 
 export async function getPlaylistInfo(
   token: string,
-  id: string
+  id: string,
 ): Promise<SpotifyPlaylistDetail> {
   const res = await spotifyFetch(token, `/playlists/${id}`);
   return res.json();
@@ -285,7 +284,7 @@ export function formatItemInfo(type: string, data: unknown): string {
     const tracks = a.tracks?.items
       ?.map(
         (t: SpotifyTrackSimple, i: number) =>
-          `  ${i + 1}. ${t.name} (${artistNames(t.artists)})`
+          `  ${i + 1}. ${t.name} (${artistNames(t.artists)})`,
       )
       .join("\n");
     return [
@@ -309,7 +308,10 @@ export function formatItemInfo(type: string, data: unknown): string {
       .join("\n");
     const albums = a.albums
       ?.slice(0, 5)
-      .map((al, i) => `  ${i + 1}. ${al.name} (${al.release_date?.substring(0, 4) ?? "Unknown"})`)
+      .map(
+        (al, i) =>
+          `  ${i + 1}. ${al.name} (${al.release_date?.substring(0, 4) ?? "Unknown"})`,
+      )
       .join("\n");
     return [
       `Artist: ${a.name}`,
@@ -357,7 +359,7 @@ export async function createPlaylist(
   userId: string,
   name: string,
   isPublic: boolean,
-  description?: string
+  description?: string,
 ): Promise<SpotifyPlaylistDetail> {
   const res = await spotifyFetch(token, `/users/${userId}/playlists`, {
     method: "POST",
@@ -373,9 +375,12 @@ export async function createPlaylist(
 
 export async function getPlaylistOwnerId(
   token: string,
-  playlistId: string
+  playlistId: string,
 ): Promise<string> {
-  const res = await spotifyFetch(token, `/playlists/${playlistId}?fields=owner(id)`);
+  const res = await spotifyFetch(
+    token,
+    `/playlists/${playlistId}?fields=owner(id)`,
+  );
   const data = (await res.json()) as { owner?: { id?: string } };
   if (!data.owner?.id) {
     throw new Error("Could not determine playlist owner.");
@@ -387,7 +392,7 @@ export async function addTracksToPlaylist(
   token: string,
   playlistId: string,
   trackUris: string[],
-  position?: number
+  position?: number,
 ): Promise<void> {
   const body: Record<string, unknown> = { uris: trackUris };
   if (position !== undefined) body.position = position;
@@ -400,7 +405,7 @@ export async function addTracksToPlaylist(
 
 export async function addToLikedSongs(
   token: string,
-  trackIds: string[]
+  trackIds: string[],
 ): Promise<void> {
   await spotifyFetch(token, "/me/tracks", {
     method: "PUT",
@@ -416,7 +421,7 @@ export async function addToLikedSongs(
 export async function getUserPlaylists(
   token: string,
   limit: number = 50,
-  offset: number = 0
+  offset: number = 0,
 ): Promise<SpotifyPaginatedPlaylists> {
   const params = new URLSearchParams({
     limit: String(limit),
@@ -429,7 +434,7 @@ export async function getUserPlaylists(
 export async function searchMyPlaylists(
   token: string,
   query: string,
-  limit: number = 10
+  limit: number = 10,
 ): Promise<SpotifyPlaylistSimple[]> {
   const matched: SpotifyPlaylistSimple[] = [];
   let offset = 0;
@@ -459,7 +464,7 @@ export async function searchMyPlaylists(
 // ---------------------------------------------------------------------------
 
 export function formatCurrentTrack(data: SpotifyCurrentTrack | null): string {
-  if (!data || !data.item) return "No track is currently playing.";
+  if (!data?.item) return "No track is currently playing.";
   const t = data.item;
   const progress = data.progress_ms ? formatDuration(data.progress_ms) : "0:00";
   return [
@@ -476,13 +481,17 @@ export function formatQueue(data: SpotifyQueue): string {
   const lines: string[] = [];
   if (data.currently_playing) {
     const t = data.currently_playing;
-    lines.push(`Now Playing: ${t.name} - ${t.artists ? artistNames(t.artists) : "Unknown"}`);
+    lines.push(
+      `Now Playing: ${t.name} - ${t.artists ? artistNames(t.artists) : "Unknown"}`,
+    );
   }
   if (data.queue && data.queue.length > 0) {
     lines.push("\nQueue:");
     for (let i = 0; i < data.queue.length && i < 20; i++) {
       const t = data.queue[i];
-      lines.push(`  ${i + 1}. ${t.name} - ${t.artists ? artistNames(t.artists) : "Unknown"}`);
+      lines.push(
+        `  ${i + 1}. ${t.name} - ${t.artists ? artistNames(t.artists) : "Unknown"}`,
+      );
     }
   } else if (lines.length === 0) {
     return "Queue is empty.";
@@ -494,8 +503,7 @@ export function formatPlaylistList(playlists: SpotifyPlaylistSimple[]): string {
   if (playlists.length === 0) return "No playlists found.";
   return playlists
     .map(
-      (p) =>
-        `${p.name} (${p.tracks.total} tracks) [spotify:playlist:${p.id}]`
+      (p) => `${p.name} (${p.tracks.total} tracks) [spotify:playlist:${p.id}]`,
     )
     .join("\n");
 }

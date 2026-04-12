@@ -1,6 +1,6 @@
 import OAuthProvider from "@cloudflare/workers-oauth-provider";
-import { SpotifyHandler } from "./spotify-handler";
 import { SpotifyMcpServer } from "./mcp-server";
+import { SpotifyHandler } from "./spotify-handler";
 import type { Env } from "./types";
 
 export { SpotifyMcpServer };
@@ -8,6 +8,7 @@ export { SpotifyMcpServer };
 const oauthProvider = new OAuthProvider({
   apiRoute: "/mcp",
   apiHandler: SpotifyMcpServer.serve("/mcp"),
+  // biome-ignore lint/suspicious/noExplicitAny: SpotifyHandler (Hono app) is not assignable to OAuthProvider's defaultHandler type
   defaultHandler: SpotifyHandler as any,
   authorizeEndpoint: "/authorize",
   tokenEndpoint: "/token",

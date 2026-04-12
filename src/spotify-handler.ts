@@ -31,11 +31,12 @@ app.get("/authorize", async (c) => {
   await c.env.OAUTH_KV.put(
     `spotify_state:${stateKey}`,
     JSON.stringify(oauthReqInfo),
-    { expirationTtl: 600 } // 10 minutes
+    { expirationTtl: 600 }, // 10 minutes
   );
 
   // Use X-Forwarded-Host or Host header to get the correct origin behind tunnels/proxies
-  const forwardedHost = c.req.header("x-forwarded-host") || c.req.header("host");
+  const forwardedHost =
+    c.req.header("x-forwarded-host") || c.req.header("host");
   const forwardedProto = c.req.header("x-forwarded-proto") || "https";
   const origin = forwardedHost
     ? `${forwardedProto}://${forwardedHost}`
@@ -73,13 +74,14 @@ app.get("/callback", async (c) => {
   await c.env.OAUTH_KV.delete(`spotify_state:${stateKey}`);
 
   // Exchange code for Spotify tokens
-  const forwardedHost = c.req.header("x-forwarded-host") || c.req.header("host");
+  const forwardedHost =
+    c.req.header("x-forwarded-host") || c.req.header("host");
   const forwardedProto = c.req.header("x-forwarded-proto") || "https";
   const origin = forwardedHost
     ? `${forwardedProto}://${forwardedHost}`
     : new URL(c.req.url).origin;
   const credentials = btoa(
-    `${c.env.SPOTIFY_CLIENT_ID}:${c.env.SPOTIFY_CLIENT_SECRET}`
+    `${c.env.SPOTIFY_CLIENT_ID}:${c.env.SPOTIFY_CLIENT_SECRET}`,
   );
   const tokenRes = await fetch(SPOTIFY_TOKEN_URL, {
     method: "POST",

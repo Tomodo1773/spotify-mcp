@@ -1,31 +1,31 @@
-import { McpAgent } from "agents/mcp";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpAgent } from "agents/mcp";
 import { z } from "zod";
 import {
-  search,
-  formatSearchResults,
-  getCurrentTrack,
-  formatCurrentTrack,
-  startPlayback,
-  pausePlayback,
-  skipTrack,
+  addToLikedSongs,
   addToQueue,
-  getQueue,
+  addTracksToPlaylist,
+  createPlaylist,
+  formatCurrentTrack,
+  formatItemInfo,
+  formatPlaylistList,
   formatQueue,
-  getTrackInfo,
+  formatSearchResults,
   getAlbumInfo,
   getArtistInfo,
+  getCurrentTrack,
   getPlaylistInfo,
-  formatItemInfo,
-  createPlaylist,
-  addTracksToPlaylist,
   getPlaylistOwnerId,
-  addToLikedSongs,
-  searchMyPlaylists,
-  formatPlaylistList,
+  getQueue,
+  getTrackInfo,
   getValidToken,
+  pausePlayback,
   refreshAccessToken,
   SpotifyApiError,
+  search,
+  searchMyPlaylists,
+  skipTrack,
+  startPlayback,
 } from "./spotify-api";
 import type { Env, SpotifyAuthProps } from "./types";
 
@@ -38,29 +38,29 @@ export class SpotifyMcpServer extends McpAgent<Env, unknown, SpotifyAuthProps> {
   });
 
   private async withAuth<T>(
-    fn: (token: string) => Promise<T>
+    fn: (token: string, userId: string) => Promise<T>,
   ): Promise<T> {
     const userId = this.props?.userId;
     if (!userId) {
       throw new Error(
-        "Not authenticated. Please reconnect to authorize with Spotify."
+        "Not authenticated. Please reconnect to authorize with Spotify.",
       );
     }
 
     let token = await getValidToken(this.env, userId);
     try {
-      return await fn(token);
+      return await fn(token, userId);
     } catch (err) {
       if (err instanceof SpotifyApiError && err.status === 401) {
         token = await refreshAccessToken(this.env, userId);
-        return await fn(token);
+        return await fn(token, userId);
       }
       throw err;
     }
   }
 
   private async handleTool(
-    fn: (token: string) => Promise<string>
+    fn: (token: string, userId: string) => Promise<string>,
   ): Promise<McpTextResult> {
     try {
       const text = await this.withAuth(fn);
@@ -68,7 +68,9 @@ export class SpotifyMcpServer extends McpAgent<Env, unknown, SpotifyAuthProps> {
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Unknown error occurred";
-      return { content: [{ type: "text" as const, text: `Error: ${message}` }] };
+      return {
+        content: [{ type: "text" as const, text: `Error: ${message}` }],
+      };
     }
   }
 
@@ -95,7 +97,7 @@ export class SpotifyMcpServer extends McpAgent<Env, unknown, SpotifyAuthProps> {
         this.handleTool(async (token) => {
           const result = await search(token, query, type, limit);
           return formatSearchResults(result, type);
-        })
+        }),
     );
 
     // ----- spotify_playback -----
@@ -110,7 +112,7 @@ export class SpotifyMcpServer extends McpAgent<Env, unknown, SpotifyAuthProps> {
           .string()
           .optional()
           .describe(
-            "Spotify URI to play (e.g. spotify:track:xxx). Used with 'start' action."
+            "Spotify URI to play (e.g. spotify:track:xxx). Used with 'start' action.",
           ),
         num_skips: z
           .number()
@@ -139,7 +141,7 @@ export class SpotifyMcpServer extends McpAgent<Env, unknown, SpotifyAuthProps> {
               await skipTrack(token, num_skips);
               return `Skipped ${num_skips} track(s).`;
           }
-        })
+        }),
     );
 
     // ----- spotify_queue -----
@@ -152,7 +154,7 @@ export class SpotifyMcpServer extends McpAgent<Env, unknown, SpotifyAuthProps> {
           .string()
           .optional()
           .describe(
-            "Spotify URI of the track to add (e.g. spotify:track:xxx). Required for 'add' action."
+            "Spotify URI of the track to add (e.g. spotify:track:xxx). Required for 'add' action.",
           ),
       },
       async ({ action, track_uri }) =>
@@ -166,7 +168,7 @@ export class SpotifyMcpServer extends McpAgent<Env, unknown, SpotifyAuthProps> {
           }
           const queue = await getQueue(token);
           return formatQueue(queue);
-        })
+        }),
     );
 
     // ----- spotify_get_info -----
@@ -177,11 +179,11 @@ export class SpotifyMcpServer extends McpAgent<Env, unknown, SpotifyAuthProps> {
         item_uri: z
           .string()
           .describe(
-            "Spotify URI (e.g. spotify:track:xxx, spotify:album:xxx, spotify:artist:xxx, spotify:playlist:xxx)"
+            "Spotify URI (e.g. spotify:track:xxx, spotify:album:xxx, spotify:artist:xxx, spotify:playlist:xxx)",
           ),
       },
       async ({ item_uri }) =>
-        this.handleTool(async (token) => {
+        this.handleTool(async (token, userId) => {
           const parts = item_uri.split(":");
           if (parts.length < 3 || parts[0] !== "spotify") {
             return "Error: Invalid Spotify URI format. Expected spotify:{type}:{id}";
@@ -203,7 +205,6 @@ export class SpotifyMcpServer extends McpAgent<Env, unknown, SpotifyAuthProps> {
               return formatItemInfo("artist", data);
             }
             case "playlist": {
-              const userId = this.props!.userId;
               const ownerId = await getPlaylistOwnerId(token, id);
               if (ownerId !== userId) {
                 return `Error: Playlist ${id} does not belong to you. You can only view info for your own playlists.`;
@@ -214,7 +215,7 @@ export class SpotifyMcpServer extends McpAgent<Env, unknown, SpotifyAuthProps> {
             default:
               return `Error: Unsupported item type '${type}'. Supported: track, album, artist, playlist`;
           }
-        })
+        }),
     );
 
     // ----- spotify_create_playlist -----
@@ -229,17 +230,16 @@ export class SpotifyMcpServer extends McpAgent<Env, unknown, SpotifyAuthProps> {
           .describe("Description for the playlist"),
       },
       async ({ name, description }) =>
-        this.handleTool(async (token) => {
-          const userId = this.props!.userId;
+        this.handleTool(async (token, userId) => {
           const playlist = await createPlaylist(
             token,
             userId,
             name,
             false,
-            description
+            description,
           );
           return `Playlist created (private): ${playlist.name} [spotify:playlist:${playlist.id}]`;
-        })
+        }),
     );
 
     // ----- spotify_add_tracks_to_playlist -----
@@ -247,7 +247,9 @@ export class SpotifyMcpServer extends McpAgent<Env, unknown, SpotifyAuthProps> {
       "spotify_add_tracks_to_playlist",
       "Add a track to one of your own Spotify playlists",
       {
-        playlist_id: z.string().describe("ID of the playlist (must be owned by you)"),
+        playlist_id: z
+          .string()
+          .describe("ID of the playlist (must be owned by you)"),
         track_id: z.string().describe("ID of the track to add"),
         position: z
           .number()
@@ -257,8 +259,7 @@ export class SpotifyMcpServer extends McpAgent<Env, unknown, SpotifyAuthProps> {
           .describe("Position to insert the track (0-based). Defaults to end."),
       },
       async ({ playlist_id, track_id, position }) =>
-        this.handleTool(async (token) => {
-          const userId = this.props!.userId;
+        this.handleTool(async (token, userId) => {
           const ownerId = await getPlaylistOwnerId(token, playlist_id);
           if (ownerId !== userId) {
             return `Error: Playlist ${playlist_id} does not belong to you. You can only add tracks to your own playlists.`;
@@ -267,7 +268,7 @@ export class SpotifyMcpServer extends McpAgent<Env, unknown, SpotifyAuthProps> {
           await addTracksToPlaylist(token, playlist_id, [trackUri], position);
           await addToLikedSongs(token, [track_id]);
           return `Track ${track_id} added to playlist ${playlist_id}.`;
-        })
+        }),
     );
 
     // ----- spotify_add_track_to_liked_songs -----
@@ -281,7 +282,7 @@ export class SpotifyMcpServer extends McpAgent<Env, unknown, SpotifyAuthProps> {
         this.handleTool(async (token) => {
           await addToLikedSongs(token, [track_id]);
           return `Track ${track_id} added to Liked Songs.`;
-        })
+        }),
     );
 
     // ----- spotify_search_my_playlists -----
@@ -289,7 +290,9 @@ export class SpotifyMcpServer extends McpAgent<Env, unknown, SpotifyAuthProps> {
       "spotify_search_my_playlists",
       "Search through your own Spotify playlists by name",
       {
-        query: z.string().describe("Search query to match against playlist names"),
+        query: z
+          .string()
+          .describe("Search query to match against playlist names"),
         limit: z
           .number()
           .int()
@@ -302,7 +305,7 @@ export class SpotifyMcpServer extends McpAgent<Env, unknown, SpotifyAuthProps> {
         this.handleTool(async (token) => {
           const playlists = await searchMyPlaylists(token, query, limit);
           return formatPlaylistList(playlists);
-        })
+        }),
     );
 
     // ----- get_current_anime_playlist -----
@@ -312,7 +315,7 @@ export class SpotifyMcpServer extends McpAgent<Env, unknown, SpotifyAuthProps> {
       {},
       async () => {
         const now = new Date(
-          Date.now() + 9 * 60 * 60 * 1000 // UTC -> JST
+          Date.now() + 9 * 60 * 60 * 1000, // UTC -> JST
         );
         const year = now.getUTCFullYear();
         const month = now.getUTCMonth() + 1; // 1-12
@@ -332,7 +335,7 @@ export class SpotifyMcpServer extends McpAgent<Env, unknown, SpotifyAuthProps> {
         return {
           content: [{ type: "text" as const, text: playlistName }],
         };
-      }
+      },
     );
   }
 }
