@@ -1,5 +1,9 @@
+import type {
+  AuthRequest,
+  OAuthHelpers,
+} from "@cloudflare/workers-oauth-provider";
 import { Hono } from "hono";
-import type { Env, OAuthReqInfo, SpotifyTokens } from "./types";
+import type { SpotifyTokens } from "./types";
 
 const SPOTIFY_AUTHORIZE_URL = "https://accounts.spotify.com/authorize";
 const SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token";
@@ -16,7 +20,7 @@ const SCOPES = [
   "user-library-read",
 ].join(" ");
 
-type HonoEnv = { Bindings: Env };
+type HonoEnv = { Bindings: Env & { OAUTH_PROVIDER: OAuthHelpers } };
 
 const app = new Hono<HonoEnv>();
 
@@ -70,7 +74,7 @@ app.get("/callback", async (c) => {
   if (!stored) {
     return c.text("Invalid or expired state", 400);
   }
-  const oauthReqInfo: OAuthReqInfo = JSON.parse(stored);
+  const oauthReqInfo: AuthRequest = JSON.parse(stored);
   await c.env.OAUTH_KV.delete(`spotify_state:${stateKey}`);
 
   // Exchange code for Spotify tokens

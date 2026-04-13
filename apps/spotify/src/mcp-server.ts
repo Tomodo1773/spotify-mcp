@@ -27,7 +27,6 @@ import {
   skipTrack,
   startPlayback,
 } from "./spotify-api";
-import type { Env } from "./types";
 
 type McpTextResult = { content: Array<{ type: "text"; text: string }> };
 

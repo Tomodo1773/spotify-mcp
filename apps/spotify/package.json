@@ -5,18 +5,17 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "cf-typegen": "wrangler types"
   },
   "dependencies": {
-    "@cloudflare/workers-oauth-provider": "^0.4.0",
-    "@modelcontextprotocol/sdk": "^1.11.0",
-    "agents": "^0.9.0",
-    "hono": "^4.7.6",
-    "zod": "^4.3.6"
+    "@cloudflare/workers-oauth-provider": "catalog:",
+    "@modelcontextprotocol/sdk": "catalog:",
+    "agents": "catalog:",
+    "hono": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20250327.0",
-    "typescript": "^6.0.2",
-    "wrangler": "^4.10.0"
+    "wrangler": "catalog:"
   }
 }
