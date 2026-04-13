@@ -1,0 +1,37 @@
+version: 2
+
+updates:
+  # npmパッケージ（バージョンアップデート＋セキュリティアップデート）
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Tokyo
+    cooldown:
+      default-days: 7
+      semver-patch-days: 3
+      semver-minor-days: 7
+      semver-major-days: 14
+    open-pull-requests-limit: 10
+    groups:
+      all-npm-dependencies:
+        patterns:
+          - "*"
+
+  # GitHub Actionsのバージョンアップデート
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Tokyo
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    groups:
+      github-actions:
+        patterns:
+          - "*"
