@@ -20,9 +20,11 @@ export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext) {
     // Cloudflare Tunnel経由だとリクエストURLがhttp://になるため、
     // X-Forwarded-Protoヘッダーを元にhttps://に書き換える
-    const proto = request.headers.get("x-forwarded-proto");
-    if (proto === "https" && new URL(request.url).protocol === "http:") {
-      const url = new URL(request.url);
+    const url = new URL(request.url);
+    if (
+      request.headers.get("x-forwarded-proto") === "https" &&
+      url.protocol === "http:"
+    ) {
       url.protocol = "https:";
       request = new Request(url.toString(), request);
     }
