@@ -4,16 +4,19 @@
   "private": true,
   "packageManager": "pnpm@10.32.1",
   "scripts": {
-    "dev:spotify": "pnpm --filter spotify-mcp dev",
-    "dev:gemini": "pnpm --filter gemini-mcp dev",
-    "deploy:spotify": "pnpm --filter spotify-mcp deploy",
-    "deploy:gemini": "pnpm --filter gemini-mcp deploy",
+    "dev:spotify": "pnpm --filter @mcp-servers/spotify dev",
+    "dev:gemini": "pnpm --filter @mcp-servers/gemini dev",
+    "deploy:spotify": "pnpm --filter @mcp-servers/spotify deploy",
+    "deploy:gemini": "pnpm --filter @mcp-servers/gemini deploy",
     "typecheck": "pnpm -r typecheck",
     "lint": "biome check ./apps",
     "lint:fix": "biome check --write ./apps",
     "format": "biome format --write ./apps"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.11"
+    "@biomejs/biome": "^2.4.11",
+    "@cloudflare/workers-types": "catalog:",
+    "typescript": "catalog:",
+    "wrangler": "catalog:"
   }
 }

@@ -1,7 +1,6 @@
 import OAuthProvider from "@cloudflare/workers-oauth-provider";
 import { createSpotifyMcpHandler } from "./mcp-server";
 import { SpotifyHandler } from "./spotify-handler";
-import type { Env } from "./types";
 
 const oauthProvider = new OAuthProvider({
   apiRoute: "/mcp",
