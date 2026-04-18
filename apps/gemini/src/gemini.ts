@@ -1,4 +1,8 @@
-import type { GoogleGenAI } from "@google/genai";
+import {
+  createPartFromBase64,
+  type GoogleGenAI,
+  type Part,
+} from "@google/genai";
 
 export async function fetchUrlSummary(
   ai: GoogleGenAI,
@@ -68,10 +72,16 @@ export async function transcribeYoutube(
 export async function generateImage(
   ai: GoogleGenAI,
   prompt: string,
+  images: Array<{ mimeType: string; data: string }> = [],
 ): Promise<{ base64: string; mimeType: string }> {
+  const parts: Part[] = [
+    { text: prompt },
+    ...images.map((img) => createPartFromBase64(img.data, img.mimeType)),
+  ];
+
   const res = await ai.models.generateContent({
     model: "gemini-3-pro-image-preview",
-    contents: prompt,
+    contents: parts,
   });
 
   for (const part of res.candidates?.[0]?.content?.parts ?? []) {
